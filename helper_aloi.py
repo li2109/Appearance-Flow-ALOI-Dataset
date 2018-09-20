@@ -24,24 +24,22 @@ from transformations import euler_from_matrix
 
 class InputHelper(object):
 
-    def setup(self,kitti_odompath, kitti_parentpath, seq_list):
-        self.odomDict={}
-        self.kitti_odompath = kitti_odompath
+    def setup(self,kitti_parentpath, seq_list):
         self.kitti_parentpath = kitti_parentpath
 
-        self.setOdomInfo(seq_list)
+        # self.setOdomInfo(seq_list)
 
 
-    def setOdomInfo(self,seq_list): #open individual post txt file and add each number into the list
+    # def setOdomInfo(self,seq_list): #open individual post txt file and add each number into the list
 
-        for seq in seq_list:
-            append_seqname="%02d.txt" % (seq,) #pose file name
-            odom_list=[]
-            for line in open(self.kitti_odompath+append_seqname):
-                val=line.split() 
-                val=[float(ele) for ele in val]
-                odom_list.append(val)
-            self.odomDict[seq]=odom_list
+    #     for seq in seq_list:
+    #         append_seqname="%02d.txt" % (seq,) #pose file name
+    #         odom_list=[]
+    #         for line in open(self.kitti_odompath+append_seqname):
+    #             val=line.split() 
+    #             val=[float(ele) for ele in val]
+    #             odom_list.append(val)
+    #         self.odomDict[seq]=odom_list
 
 
 
@@ -51,40 +49,40 @@ class InputHelper(object):
         imgpaths_tgt=[]
         tforms_imgs=[]
 
-        seq_path = self.kitti_parentpath+"%02d/" % (seq_num,)
-        odomlist=self.odomDict[seq_num]
+        seq_path = os.path.join(self.kitti_parentpath,str(seq_num))
+        odomlist=[]
 
         for x in range(batch_size):
-            src_img_num=np.random.randint(0,seq_imgs_num)
-            radius_num=np.random.randint(1,sample_range+1)
-            odom_src=odomlist[src_img_num]
-            odom_src=np.reshape(odom_src,(3,4))
-            if random()>0.5:
-                if (src_img_num-radius_num)>0:
-                    tgt_img_num=src_img_num-radius_num
-                else:
-                    tgt_img_num=src_img_num+radius_num
-            else:
-                if (src_img_num+radius_num)<seq_imgs_num-1:
-                    tgt_img_num=src_img_num+radius_num
-                else:
-                    tgt_img_num=src_img_num-radius_num
+            # src_img_num=np.random.randint(0,seq_imgs_num)
+            # radius_num=np.random.randint(1,sample_range+1)
+            # odom_src=odomlist[src_img_num]
+            # odom_src=np.reshape(odom_src,(3,4))
+            # if random()>0.5:
+            #     if (src_img_num-radius_num)>0:
+            #         tgt_img_num=src_img_num-radius_num
+            #     else:
+            #         tgt_img_num=src_img_num+radius_num
+            # else:
+            #     if (src_img_num+radius_num)<seq_imgs_num-1:
+            #         tgt_img_num=src_img_num+radius_num
+            #     else:
+            #         tgt_img_num=src_img_num-radius_num
 
-            odom_tgt=odomlist[tgt_img_num]
-            odom_tgt=np.reshape(odom_tgt,(3,4))
-            newrow = [0,0,0,1]
-            odom_tgt_4x4 = np.vstack([odom_tgt, newrow])
-            odom_src_4x4 = np.vstack([odom_src, newrow])
-            odom_src_inv=linalg.inv(odom_src_4x4)
-            #src inv * tgt = relative transform
-            rel_odom_src_tgt=np.matmul(odom_src_inv,odom_tgt_4x4)
-            ##converting to euler to get 6d =(3+3) dimensional vector for pose
-            rel_tform_rot=rel_odom_src_tgt[0:3,0:3]
-            rx,ry,rz = euler_from_matrix(rel_tform_rot)
-            rel_tform_vec = [ rel_odom_src_tgt[0,3], rel_odom_src_tgt[1,3], rel_odom_src_tgt[2,3], rx, ry, rz]
-            heightwise = np.tile(rel_tform_vec,(conv_model_spec[1][0]*conv_model_spec[1][1],1))
-            widthwise = np.reshape(heightwise, (conv_model_spec[1][0],conv_model_spec[1][1],-1))
-            tforms_imgs.append(widthwise)
+            # odom_tgt=odomlist[tgt_img_num]
+            # odom_tgt=np.reshape(odom_tgt,(3,4))
+            # newrow = [0,0,0,1]
+            # odom_tgt_4x4 = np.vstack([odom_tgt, newrow])
+            # odom_src_4x4 = np.vstack([odom_src, newrow])
+            # odom_src_inv=linalg.inv(odom_src_4x4)
+            # #src inv * tgt = relative transform
+            # rel_odom_src_tgt=np.matmul(odom_src_inv,odom_tgt_4x4)
+            # ##converting to euler to get 6d =(3+3) dimensional vector for pose
+            # rel_tform_rot=rel_odom_src_tgt[0:3,0:3]
+            # rx,ry,rz = euler_from_matrix(rel_tform_rot)
+            # rel_tform_vec = [ rel_odom_src_tgt[0,3], rel_odom_src_tgt[1,3], rel_odom_src_tgt[2,3], rx, ry, rz]
+            # heightwise = np.tile(rel_tform_vec,(conv_model_spec[1][0]*conv_model_spec[1][1],1))
+            # widthwise = np.reshape(heightwise, (conv_model_spec[1][0],conv_model_spec[1][1],-1))
+            # tforms_imgs.append(widthwise)
 
             src_img_path=seq_path+ 'image_2/' +'%06d.png' % (src_img_num,)
             tgt_img_path=seq_path+ 'image_2/' +'%06d.png' % (tgt_img_num,)
@@ -169,14 +167,12 @@ class InputHelper(object):
 
 
 
-    def getKittiBatch(self,batch_size, sample_range, seq_list, is_train, img_num_dict, conv_model_spec, epoch,  get_img_tforms=1, is_multi_view=False):
+    def getBatch(self,batch_size, sample_range, seq_list, is_train, img_num_dict, conv_model_spec, epoch,  get_img_tforms=1, is_multi_view=False):
 
-
-
-        lenseq = len(seq_list)
-        seq_idx = np.random.randint(0,lenseq)
+        lenseq = len(seq_list) #number of training folders
+        seq_idx = np.random.randint(1,lenseq+1) #get random folder
         seq_num = seq_list[seq_idx]
-        seq_imgs_num = img_num_dict[seq_num]
+        seq_imgs_num = 12
         src_imgslist = []
 
         if(is_multi_view):

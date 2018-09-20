@@ -7,7 +7,7 @@ import os
 import time
 import datetime
 import gc
-from helper_kitti import InputHelper, save_plot
+from helper_aloi import InputHelper, save_plot
 import gzip
 from random import random
 from model_single_view import Net
@@ -15,7 +15,7 @@ from model_multi_view import Net_MultiView
 from scipy.misc import imsave
 # Parameters
 # ==================================================
-tf.flags.DEFINE_string("kitti_odom_path", "Dataset/poses/", "training folder")
+# tf.flags.DEFINE_string("kitti_odom_path", "Dataset/poses/", "training folder")
 tf.flags.DEFINE_string("kitti_parentpath", "Dataset/sequences/", "training folder")
 tf.flags.DEFINE_string("name", "result", "prefix names of the output files(default: result)")
 
@@ -56,7 +56,7 @@ unseen_seqstest=seqs[799:900] #unseen test from 800-900
 #hard coded for now, add method to compute TODO
 imgs_counts={0:12,1:12}
 inpH = InputHelper()
-inpH.setup(FLAGS.kitti_odom_path, FLAGS.kitti_parentpath ,seqs)
+inpH.setup(FLAGS.kitti_parentpath ,seqs)
 
 
 # Training
@@ -129,13 +129,11 @@ with tf.Graph().as_default():
     for i, var in enumerate(tvar):
         print("{}".format(var.name))
 
-
     print("init all variables")
     graph_def = tf.get_default_graph().as_graph_def()
     graphpb_txt = str(graph_def)
     with open(os.path.join(checkpoint_dir, "graphpb.txt"), 'w') as f:
         f.write(graphpb_txt)
-
 
     train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', graph=tf.get_default_graph())
     val_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
@@ -144,7 +142,6 @@ with tf.Graph().as_default():
 
         #A single training step
         if(FLAGS.multi_view_training):
-
             feed_dict={convModel.input_imgs: src_batch[0],
                         convModel.aux_imgs: src_batch[1],
                         convModel.tgt_imgs: tgt_batch,
@@ -152,11 +149,9 @@ with tf.Graph().as_default():
                         convModel.tform_aux: tform_batch[1] }
 
         else:
-
             feed_dict={convModel.input_imgs: src_batch[0],
                         convModel.tgt_imgs: tgt_batch,
                         convModel.tform: tform_batch[0] }
-
 
         if(train_iter%2000==0):
             outputs, _, step, loss, summary = sess.run([convModel.tgts, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
@@ -208,7 +203,7 @@ with tf.Graph().as_default():
         train_epoch_loss=0.0
         for kk in range(FLAGS.batches_train):
             print(str(kk))
-            src_batch, tgt_batch, tform_batch = inpH.getKittiBatch(FLAGS.batch_size,FLAGS.sample_range,seqstrain,True, imgs_counts, convModel.spec,nn, FLAGS.multi_view_training)
+            src_batch, tgt_batch, tform_batch = inpH.getBatch(FLAGS.batch_size,FLAGS.sample_range,seqstrain,True, imgs_counts, convModel.spec,nn, FLAGS.multi_view_training)
             if len(tform_batch)<1:
                 continue
             summary, train_batch_loss =train_step(src_batch, tgt_batch, tform_batch, kk, nn, FLAGS.multi_view_training)
@@ -223,7 +218,7 @@ with tf.Graph().as_default():
         print("\nEvaluation:")
 
         for kk in range(FLAGS.batches_test):
-            src_dev_b, tgt_dev_b, tform_dev_b = inpH.getKittiBatch(FLAGS.batch_size,FLAGS.sample_range,seqstest,True, imgs_counts, convModel.spec, nn, FLAGS.multi_view_training)
+            src_dev_b, tgt_dev_b, tform_dev_b = inpH.getBatch(FLAGS.batch_size,FLAGS.sample_range,seqstest,True, imgs_counts, convModel.spec, nn, FLAGS.multi_view_training)
 
             summary,  val_batch_loss = dev_step(src_dev_b, tgt_dev_b, tform_dev_b, kk ,nn, FLAGS.multi_view_training)
 
