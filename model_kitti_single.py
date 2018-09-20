@@ -97,23 +97,23 @@ class Net(object):
         net_layers['de_fc3_rs'] = tf.reshape(net_layers['de_fc3'],shape=[-1, 8, 8, 64], name='de_fc3_rs')
 
         #deconv
-        net_layers['deconv1'] = self._upscore_layer(net_layers['Convolution5'], shape=None,
-                                           num_classes=512,
+        net_layers['deconv1'] = self._upscore_layer(net_layers['de_fc3_rs'], shape=None,
+                                           num_classes=256,
                                            debug=debug, name='deconv1', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv2'] = self._upscore_layer(net_layers['deconv1'], shape=None,
-                                           num_classes=256,
+                                           num_classes=128,
                                            debug=debug, name='deconv2', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv3'] = self._upscore_layer(net_layers['deconv2'], shape=None,
-                                           num_classes=128,
+                                           num_classes=64,
                                            debug=debug, name='deconv3', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv4'] = self._upscore_layer(net_layers['deconv3'], shape=None,
-                                           num_classes=64,
+                                           num_classes=32,
                                            debug=debug, name='deconv4', ksize=3, stride=2, pad_input=1)
         net_layers['deconv5'] = self._upscore_layer(net_layers['deconv4'], shape=None,
-                                           num_classes=32,
+                                           num_classes=16,
                                            debug=debug, name='deconv5', ksize=3, stride=2, pad_input=1)
         net_layers['deconv6'] = self._upscore_layer(net_layers['deconv5'], shape=None,
                                            num_classes=2,
