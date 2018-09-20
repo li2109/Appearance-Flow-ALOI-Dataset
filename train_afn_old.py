@@ -10,8 +10,8 @@ import gc
 from helper_kitti import InputHelper, save_plot
 import gzip
 from random import random
-from model_kitti_single import Net
-from model_kitti_multi import Net_MultiView
+from model_single_view import Net
+from model_multi_view import Net_MultiView
 from scipy.misc import imsave
 # Parameters
 # ==================================================
