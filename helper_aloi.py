@@ -146,21 +146,21 @@ class InputHelper(object):
         crop_window=np.random.randint(0,3)
 
         for srclists in imgpaths_src:
-            src_imgslist.append(self.load_preprocess_images_kitti(srclists, conv_model_spec,epoch,crop_window))
+            src_imgslist.append(self.image_preprocess(srclists, conv_model_spec,epoch,crop_window))
 
-        tgt_imgslist = self.load_preprocess_images_kitti(imgpaths_tgt, conv_model_spec,epoch, crop_window)
+        tgt_imgslist = self.image_preprocess(imgpaths_tgt, conv_model_spec,epoch, crop_window)
 
         return src_imgslist,tgt_imgslist,tforms_imgs
 
 
 
-    def load_preprocess_images_kitti(self, img_paths, conv_model_spec, epoch,crop_window, is_train=True):
+    def image_preprocess(self, img_paths, conv_model_spec, epoch,crop_window, is_train=True):
         img_batch = []
 
         for img_path in img_paths:
             img_org = misc.imread(img_path)
-            img_normalized = self.normalize_input(img_org, conv_model_spec,crop_window)
-            img_batch.append(img_normalized)
+            # img_normalized = self.normalize_input(img_org, conv_model_spec,crop_window)
+            img_batch.append(img_org)
 
         #misc.imsave('temp1.png', np.vstack([np.hstack(batch1_seq),np.hstack(batch2_seq)]))
 
@@ -168,34 +168,34 @@ class InputHelper(object):
         return temp
 
 
-    def batch_iter(self, x1, x2, y, video_lengths, batch_size, num_epochs, conv_model_spec, shuffle=True, is_train=True):
-        """
-        Generates a batch iterator for a dataset.
-        """
-        data_size = len(y)
-        temp = int(data_size/batch_size)
-        num_batches_per_epoch = temp+1 if (data_size%batch_size) else temp
+    # def batch_iter(self, x1, x2, y, video_lengths, batch_size, num_epochs, conv_model_spec, shuffle=True, is_train=True):
+    #     """
+    #     Generates a batch iterator for a dataset.
+    #     """
+    #     data_size = len(y)
+    #     temp = int(data_size/batch_size)
+    #     num_batches_per_epoch = temp+1 if (data_size%batch_size) else temp
 
-        for epoch in range(num_epochs):
-            # Shuffle the data at each epoch
-            if shuffle:
-                shuffle_indices = np.random.permutation(np.arange(data_size))
-                x1_shuffled=x1[shuffle_indices]
-                x2_shuffled=x2[shuffle_indices]
-                y_shuffled=y[shuffle_indices]
-                video_lengths_shuffled = video_lengths[shuffle_indices]
-            else:
-                x1_shuffled=x1
-                x2_shuffled=x2
-                y_shuffled=y
-                video_lengths_shuffled = video_lengths
-            for batch_num in range(num_batches_per_epoch):
-                start_index = batch_num * batch_size
-                end_index = min((batch_num + 1) * batch_size, data_size)
-                #print(y_shuffled[start_index:end_index])
+    #     for epoch in range(num_epochs):
+    #         # Shuffle the data at each epoch
+    #         if shuffle:
+    #             shuffle_indices = np.random.permutation(np.arange(data_size))
+    #             x1_shuffled=x1[shuffle_indices]
+    #             x2_shuffled=x2[shuffle_indices]
+    #             y_shuffled=y[shuffle_indices]
+    #             video_lengths_shuffled = video_lengths[shuffle_indices]
+    #         else:
+    #             x1_shuffled=x1
+    #             x2_shuffled=x2
+    #             y_shuffled=y
+    #             video_lengths_shuffled = video_lengths
+    #         for batch_num in range(num_batches_per_epoch):
+    #             start_index = batch_num * batch_size
+    #             end_index = min((batch_num + 1) * batch_size, data_size)
+    #             #print(y_shuffled[start_index:end_index])
 
-                processed_imgs = self.load_preprocess_images(x1_shuffled[start_index:end_index], x2_shuffled[start_index:end_index], conv_model_spec, epoch ,is_train)
-                yield( processed_imgs[0], processed_imgs[1]  , y_shuffled[start_index:end_index], video_lengths_shuffled[start_index:end_index])
+    #             processed_imgs = self.load_preprocess_images(x1_shuffled[start_index:end_index], x2_shuffled[start_index:end_index], conv_model_spec, epoch ,is_train)
+    #             yield( processed_imgs[0], processed_imgs[1]  , y_shuffled[start_index:end_index], video_lengths_shuffled[start_index:end_index])
 
 
     def normalize_input(self, img, conv_model_spec,crop_window):

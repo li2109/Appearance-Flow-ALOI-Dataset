@@ -15,7 +15,7 @@ from model_multi_view import Net_MultiView
 from scipy.misc import imsave
 # Parameters
 # ==================================================
-tf.flags.DEFINE_string("training_folder_path", "Dataset/sequences/", "training folder")
+tf.flags.DEFINE_string("training_folder_path", "masked_256/", "training folder")
 tf.flags.DEFINE_string("name", "result", "prefix names of the output files(default: result)")
 
 # Training parameters
@@ -142,36 +142,36 @@ with tf.Graph().as_default():
     seen_test_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
     unseen_test_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
 
-    def train_step(src_batch, real_img_batch, tform_batch, train_iter, epoch, multi_view_training):
+    def train_step(batch_size, src_batch, real_img_batch, tform_batch, train_iter, multi_view_training):
 
         #A single training step
-        if(FLAGS.multi_view_training):
+        for i in range(batch_size):
+            if(FLAGS.multi_view_training):
 
-            feed_dict={convModel.input_imgs: src_batch[0],
-                        convModel.aux_imgs: src_batch[1],
-                        convModel.tgt_imgs: real_img_batch,
-                        convModel.tform: tform_batch[0],
-                        convModel.tform_aux: tform_batch[1] }
+                feed_dict={convModel.input_imgs: src_batch[0],
+                            convModel.aux_imgs: src_batch[1],
+                            convModel.tgt_imgs: real_img_batch,
+                            convModel.tform: tform_batch[0],
+                            convModel.tform_aux: tform_batch[1] }
+            else:
 
-        else:
-
-            feed_dict={convModel.input_imgs: src_batch[0],
-                        convModel.tgt_imgs: real_img_batch,
-                        convModel.tform: tform_batch[0] }
+                feed_dict={convModel.input_imgs: src_batch[i],
+                            convModel.real_imgs: real_img_batch[i],
+                            convModel.tform: tform_batch}
 
 
-        if(train_iter%2000==0):
-            outputs, _, step, loss, summary = sess.run([convModel.generated, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
-            img_num=0
-            for i in range(len(outputs)):
-                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_output.png', outputs[i])
-                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_target.png', real_img_batch[i])
-                for j in range(len(src_batch)):
-                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_input'+str(j)+'.png', src_batch[j][i])
-                img_num+=1
-        else:
-             _, step, loss, summary = sess.run([tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
-        time_str = datetime.datetime.now().isoformat()
+            if(train_iter%FLAGS.batches_train==0):
+                outputs, _, step, loss, summary = sess.run([convModel.generated, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
+                img_num=0
+                for i in range(len(outputs)):
+                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_output.png', outputs[i])
+                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_target.png', real_img_batch[i])
+                    for j in range(len(src_batch)):
+                        imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_input'+str(j)+'.png', src_batch[j][i])
+                    img_num+=1
+            else:
+                 _, step, loss, summary = sess.run([tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
+            time_str = datetime.datetime.now().isoformat()
         return summary, loss
 
     def dev_step(src_batch, real_img_batch, tform_batch, dev_iter, epoch, multi_view_training):
@@ -215,10 +215,8 @@ with tf.Graph().as_default():
         train_epoch_loss=0.0
         for kk in range(FLAGS.batches_train):
             print(str(kk))
-            src_batch, real_img_batch, tform_batch = inpH.getInputBatch(FLAGS.batch_size,objtrain,True, imgs_counts, convModel.spec,nn, FLAGS.multi_view_training)
-            if len(tform_batch)<1:
-                continue
-            summary, train_batch_loss =train_step(src_batch, real_img_batch, tform_batch, kk, nn, FLAGS.multi_view_training)
+            src_batch, real_img_batch, tform_batch = inpH.getInputBatch(FLAGS.batch_size,objtrain,True, convModel.spec,nn, FLAGS.multi_view_training)
+            summary, train_batch_loss =train_step(FLAGS.batch_size, src_batch, real_img_batch, tform_batch, kk, FLAGS.multi_view_training)
             train_writer.add_summary(summary, current_step)
             train_epoch_loss = train_epoch_loss + train_batch_loss* len(tform_batch)
             train_batch_loss_arr.append(train_batch_loss*len(tform_batch))
@@ -226,33 +224,33 @@ with tf.Graph().as_default():
         train_loss.append(train_epoch_loss/(FLAGS.batches_train*FLAGS.batch_size))
 
         # Evaluate on Validataion Data for every epoch
-        val_epoch_loss=0.0
-        print("\nEvaluation:")
+        # val_epoch_loss=0.0
+        # print("\nEvaluation:")
 
-        for kk in range(FLAGS.batches_test):
-            src_dev_b, tgt_dev_b, tform_dev_b = inpH.getInputBatch(FLAGS.batch_size,objstest,True, imgs_counts, convModel.spec, nn, FLAGS.multi_view_training)
+        # for kk in range(FLAGS.batches_test):
+        #     src_dev_b, tgt_dev_b, tform_dev_b = inpH.getInputBatch(FLAGS.batch_size,objstest,True, convModel.spec, nn, FLAGS.multi_view_training)
 
-            summary,  val_batch_loss = dev_step(src_dev_b, tgt_dev_b, tform_dev_b, kk ,nn, FLAGS.multi_view_training)
+        #     summary,  val_batch_loss = dev_step(src_dev_b, tgt_dev_b, tform_dev_b, kk ,nn, FLAGS.multi_view_training)
 
-            val_writer.add_summary(summary, current_step)
-            val_epoch_loss = val_epoch_loss + val_batch_loss*len(tform_dev_b)
-            val_batch_loss_arr.append(val_batch_loss*len(tform_dev_b))
-            print("val_loss ={}".format(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test))
-        val_loss.append(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test)
+        #     val_writer.add_summary(summary, current_step)
+        #     val_epoch_loss = val_epoch_loss + val_batch_loss*len(tform_dev_b)
+        #     val_batch_loss_arr.append(val_batch_loss*len(tform_dev_b))
+        #     print("val_loss ={}".format(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test))
+        # val_loss.append(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test)
 
 
 
         # Update stored model
-        if current_step % (FLAGS.checkpoint_every) == 0:
-            saver.save(sess, checkpoint_prefix, global_step=current_step)
-            tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph"+str(nn)+".pb", as_text=False)
-            print("Saved model {} with checkpoint to {}".format(nn, checkpoint_prefix))
+        # if current_step % (FLAGS.checkpoint_every) == 0:
+        #     saver.save(sess, checkpoint_prefix, global_step=current_step)
+        #     tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph"+str(nn)+".pb", as_text=False)
+        #     print("Saved model {} with checkpoint to {}".format(nn, checkpoint_prefix))
 
-        epoch_end_time = time.time()
-        empty=[]
-        print("Total time for {} th-epoch is {}\n".format(nn, epoch_end_time-epoch_start_time))
-        save_plot(train_loss, val_loss, 'epochs', 'loss', 'Loss vs epochs', [-0.1, nn+0.1, 0, np.max(train_loss)+0.2],  ['train','val' ],'./loss_'+str(FLAGS.name))
-        save_plot(train_batch_loss_arr, val_batch_loss, 'steps', 'loss', 'Loss vs steps', [-0.1, (nn+1)*FLAGS.batch_size*FLAGS.batches_test+0.1, 0, np.max(train_batch_loss_arr)+0.2],  ['train','val' ],'./loss_batch_'+str(FLAGS.name))
+        # epoch_end_time = time.time()
+        # empty=[]
+        # print("Total time for {} th-epoch is {}\n".format(nn, epoch_end_time-epoch_start_time))
+        # save_plot(train_loss, val_loss, 'epochs', 'loss', 'Loss vs epochs', [-0.1, nn+0.1, 0, np.max(train_loss)+0.2],  ['train','val' ],'./loss_'+str(FLAGS.name))
+        # save_plot(train_batch_loss_arr, val_batch_loss, 'steps', 'loss', 'Loss vs steps', [-0.1, (nn+1)*FLAGS.batch_size*FLAGS.batches_test+0.1, 0, np.max(train_batch_loss_arr)+0.2],  ['train','val' ],'./loss_batch_'+str(FLAGS.name))
 
     end_time = time.time()
     print("Total time for {} epochs is {}".format(FLAGS.num_epochs, end_time-start_time))
