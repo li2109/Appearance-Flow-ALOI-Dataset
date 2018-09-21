@@ -9,17 +9,17 @@ import math
 #from tf.contrib.resampler import resampler
 
 class Net(object):
-    def initalize(self, sess):
-        pre_trained_weights = np.load(open(self.weight_path, "rb"), encoding="latin1").item()
-        keys = sorted(pre_trained_weights.keys())
-        #for k in keys:
-        for k in list(filter(lambda x: 'conv' in x,keys)):
-            with tf.variable_scope(k, reuse=True):
-                temp = tf.get_variable('weights')
-                sess.run(temp.assign(pre_trained_weights[k]['weights']))
-            with tf.variable_scope(k, reuse=True):
-                temp = tf.get_variable('biases')
-                sess.run(temp.assign(pre_trained_weights[k]['biases']))
+    # def initalize(self, sess):
+    #     pre_trained_weights = np.load(open(self.weight_path, "rb"), encoding="latin1").item()
+    #     keys = sorted(pre_trained_weights.keys())
+    #     #for k in keys:
+    #     for k in list(filter(lambda x: 'conv' in x,keys)):
+    #         with tf.variable_scope(k, reuse=True):
+    #             temp = tf.get_variable('weights')
+    #             sess.run(temp.assign(pre_trained_weights[k]['weights']))
+    #         with tf.variable_scope(k, reuse=True):
+    #             temp = tf.get_variable('biases')
+    #             sess.run(temp.assign(pre_trained_weights[k]['biases']))
 
     def conv(self, input_, filter_size, in_channels, out_channels, name, strides, padding, groups, pad_input=1):
         if pad_input==1:
@@ -51,13 +51,12 @@ class Net(object):
         else:
             return tf.nn.bias_add(tf.matmul(input_, filt), bias)
 
-
-    def pool(self, input_, padding, name):
-        return tf.nn.max_pool(input_, ksize=[1,3,3,1], strides=[1,2,2,1], padding=padding, name= name)
-
+    # def pool(self, input_, padding, name):
+    #     return tf.nn.max_pool(input_, ksize=[1,3,3,1], strides=[1,2,2,1], padding=padding, name= name)
 
 
-    def model(self):
+
+def model(self):
 
         debug=True
         net_layers={}
@@ -67,7 +66,6 @@ class Net(object):
         
         self.tform = tf.placeholder(tf.float32, shape = [None, 19], name = "tform")
         net_layers['input_stack'] = self.input_imgs
-
         #mean is already subtracted in helper.py as part of preprocessing
         # Conv-Layers
 
@@ -77,7 +75,6 @@ class Net(object):
         net_layers['Convolution4'] = self.conv(net_layers['Convolution3'], 3, 64 , 128, name= 'Convolution4', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
         net_layers['Convolution5'] = self.conv(net_layers['Convolution4'], 3, 128 , 256, name= 'Convolution5', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
         net_layers['Convolution6'] = self.conv(net_layers['Convolution5'], 3, 256 , 512, name= 'Convolution6', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-
 
         #fully connected Layer
         net_layers['src_fc6'] = self.fc(net_layers['Convolution6'], 4*4*512 , 4096, name='src_fc6', relu = 1)
@@ -204,10 +201,12 @@ class Net(object):
     def __init__(self, batch_size, trainable):
         self.batch_size = batch_size
         self.trainable = trainable
-        self.tgt_imgs = tf.placeholder(tf.float32, shape = [None, 224, 224, 3], name = "tgt_imgs")
+
+        self.real_imgs = tf.placeholder(tf.float32, shape = [None, 224, 224, 3], name = "real_imgs")
         
         mean = [104, 117, 123]
         scale_size = (224,224)
+        
         self.mean = tf.constant([104, 117, 123], dtype=tf.float32)
         self.spec = [mean, scale_size]
 
@@ -215,11 +214,11 @@ class Net(object):
 
         ##assign
         ##assert and cast them to same size!!!!
-        self.tgts=self.net_layers['predImg']
+        self.generated=self.net_layers['predImg']
         print('.......')
-        print(self.tgts.get_shape())
+        print(self.generated.get_shape())
         with tf.name_scope("loss"):
-          self.loss = self.reconstruction_loss(self.tgt_imgs, self.tgts)
+          self.loss = self.reconstruction_loss(self.real_imgs, self.generated)
 
 
         tf.summary.scalar('loss', self.loss)

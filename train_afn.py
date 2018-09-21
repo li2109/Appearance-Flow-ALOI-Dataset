@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# /media/2T8B/obj1000/aloi_preprocessed/masked_256.zip
+import sys
 import tensorflow as tf
 import numpy as np
 import re
@@ -15,16 +15,16 @@ from model_multi_view import Net_MultiView
 from scipy.misc import imsave
 # Parameters
 # ==================================================
-# tf.flags.DEFINE_string("kitti_odom_path", "Dataset/poses/", "training folder")
-tf.flags.DEFINE_string("kitti_parentpath", "Dataset/sequences/", "training folder")
+tf.flags.DEFINE_string("training_folder_path", "Dataset/sequences/", "training folder")
 tf.flags.DEFINE_string("name", "result", "prefix names of the output files(default: result)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 30, "Batch Size (default: 10)")
+tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 10)")
 tf.flags.DEFINE_integer("sample_range", 5, "Batch Size (default: 10)")
 tf.flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("checkpoint_every", 1, "Save model after this many epochs (default: 100)")
 tf.flags.DEFINE_string("loss", "contrastive", "Type of Loss function")
+tf.flags.DEFINE_boolean("is_train", False, "Training ConvNet (Default: False)")
 tf.flags.DEFINE_float("lr", 0.0001, "learning-rate(default: 0.00001)")
 
 # Misc Parameters
@@ -34,40 +34,42 @@ tf.flags.DEFINE_string("summaries_dir", "outputs/summaries/", "Summary storage")
 
 #Model Parameters
 tf.flags.DEFINE_string("checkpoint_path", "", "pre-trained checkpoint path")
-tf.flags.DEFINE_integer("numseqs", 900, "kitti sequences")
-tf.flags.DEFINE_integer("batches_train", 3000 , "batches for train")
-tf.flags.DEFINE_integer("batches_test", 200, "batches for test")
+tf.flags.DEFINE_integer("numObjects", 900, "number of objects")
+tf.flags.DEFINE_integer("batches_train", 5400 , "batches for train")
+tf.flags.DEFINE_integer("batches_seen_test", 675, "batches for seen test")
+tf.flags.DEFINE_integer("batches_unseen_test", 675, "batches for unseen test")
+
 tf.flags.DEFINE_boolean("conv_net_training", True, "Training ConvNet (Default: False)")
 tf.flags.DEFINE_boolean("multi_view_training", False, "Training ConvNet (Default: False)")
 
 FLAGS = tf.flags.FLAGS
-# FLAGS._parse_flags()
+FLAGS(sys.argv)
 print("\nParameters:")
 for attr, value in sorted(FLAGS.flag_values_dict().items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-seqs=[ i for i in range(1,FLAGS.numseqs+1) ]
+objects=[ i for i in range(1,numObjects+1) ] ##number stands for object inside ith folder
 #break into train and test
-seqstrain=seqs[0:800] #training from 1-800
-seen_seqtest=seqs[699:800] #seen test from 700-800
-unseen_seqstest=seqs[799:900] #unseen test from 800-900
+objtrain=objects[0:800]#training from 1-800
+obj_seen_test=objects[699:800]#seen test from 700-800
+obj_unseen_test=objects[799:900]#unseen test from 800-900
+
 
 #hard coded for now, add method to compute TODO
-imgs_counts={0:12,1:12}
+imgs_counts={0:4540,1:1100,2:4660,3:800,4:270,5:2760,6:1100,7:1100,8:4070,9:1590,10:1200}#,11:920}
 inpH = InputHelper()
-inpH.setup(FLAGS.kitti_parentpath ,seqs)
+inpH.setup(FLAGS.training_folder_path,objects)
 
 
 # Training
 # ==================================================
 print("starting graph def")
 with tf.Graph().as_default():
-    gpu_options = tf.GPUOptions(allow_growth=True)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     session_conf = tf.ConfigProto(
       allow_soft_placement=FLAGS.allow_soft_placement,
       log_device_placement=FLAGS.log_device_placement,
-      # allow_growth
       gpu_options=gpu_options,
       )
     sess = tf.Session(config=session_conf)
@@ -78,6 +80,7 @@ with tf.Graph().as_default():
                  FLAGS.batch_size,
                  FLAGS.conv_net_training)
         else:
+
             convModel = Net(
              FLAGS.batch_size,
              FLAGS.conv_net_training)
@@ -101,7 +104,6 @@ with tf.Graph().as_default():
             grad_summaries.append(sparsity_summary)
     summaries_merged = tf.summary.merge_all()
     print("defined gradient summaries")
-    
     # Output directory for models and summaries
     timestamp = str(int(time.time()))
     out_dir = os.path.abspath(os.path.join("outputs/", "runs", FLAGS.name))
@@ -129,19 +131,23 @@ with tf.Graph().as_default():
     for i, var in enumerate(tvar):
         print("{}".format(var.name))
 
+
     print("init all variables")
     graph_def = tf.get_default_graph().as_graph_def()
     graphpb_txt = str(graph_def)
     with open(os.path.join(checkpoint_dir, "graphpb.txt"), 'w') as f:
         f.write(graphpb_txt)
 
+
     train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train', graph=tf.get_default_graph())
-    val_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
+    seen_test_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
+    unseen_test_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/val' , graph=tf.get_default_graph())
 
     def train_step(src_batch, tgt_batch, tform_batch, train_iter, epoch, multi_view_training):
 
         #A single training step
         if(FLAGS.multi_view_training):
+
             feed_dict={convModel.input_imgs: src_batch[0],
                         convModel.aux_imgs: src_batch[1],
                         convModel.tgt_imgs: tgt_batch,
@@ -149,9 +155,11 @@ with tf.Graph().as_default():
                         convModel.tform_aux: tform_batch[1] }
 
         else:
+
             feed_dict={convModel.input_imgs: src_batch[0],
                         convModel.tgt_imgs: tgt_batch,
                         convModel.tform: tform_batch[0] }
+
 
         if(train_iter%2000==0):
             outputs, _, step, loss, summary = sess.run([convModel.tgts, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
@@ -190,20 +198,26 @@ with tf.Graph().as_default():
         step, loss, summary, outputs= sess.run([global_step, convModel.loss, summaries_merged,convModel.tgts],  feed_dict)
 
         time_str = datetime.datetime.now().isoformat()
+
         return summary, loss
+
+    if not os.path.exists('outputs/imgs/'):
+        os.makedirs('outputs/imgs/')
 
     start_time = time.time()
     train_loss, val_loss = [], []
     train_batch_loss_arr, val_batch_loss_arr = [], []
 
+
     for nn in range(FLAGS.num_epochs):
+
         current_step = tf.train.global_step(sess, global_step)
         print("Epoch Number: {}".format(nn))
         epoch_start_time = time.time()
         train_epoch_loss=0.0
         for kk in range(FLAGS.batches_train):
             print(str(kk))
-            src_batch, tgt_batch, tform_batch = inpH.getBatch(FLAGS.batch_size,FLAGS.sample_range,seqstrain,True, imgs_counts, convModel.spec,nn, FLAGS.multi_view_training)
+            src_batch, tgt_batch, tform_batch = inpH.getKittiBatch(FLAGS.batch_size,FLAGS.sample_range,objtrain,True, imgs_counts, convModel.spec,nn, FLAGS.multi_view_training)
             if len(tform_batch)<1:
                 continue
             summary, train_batch_loss =train_step(src_batch, tgt_batch, tform_batch, kk, nn, FLAGS.multi_view_training)
@@ -218,7 +232,7 @@ with tf.Graph().as_default():
         print("\nEvaluation:")
 
         for kk in range(FLAGS.batches_test):
-            src_dev_b, tgt_dev_b, tform_dev_b = inpH.getBatch(FLAGS.batch_size,FLAGS.sample_range,seqstest,True, imgs_counts, convModel.spec, nn, FLAGS.multi_view_training)
+            src_dev_b, tgt_dev_b, tform_dev_b = inpH.getKittiBatch(FLAGS.batch_size,FLAGS.sample_range,objstest,True, imgs_counts, convModel.spec, nn, FLAGS.multi_view_training)
 
             summary,  val_batch_loss = dev_step(src_dev_b, tgt_dev_b, tform_dev_b, kk ,nn, FLAGS.multi_view_training)
 
@@ -227,6 +241,8 @@ with tf.Graph().as_default():
             val_batch_loss_arr.append(val_batch_loss*len(tform_dev_b))
             print("val_loss ={}".format(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test))
         val_loss.append(val_epoch_loss/FLAGS.batch_size*FLAGS.batches_test)
+
+
 
         # Update stored model
         if current_step % (FLAGS.checkpoint_every) == 0:
@@ -242,4 +258,3 @@ with tf.Graph().as_default():
 
     end_time = time.time()
     print("Total time for {} epochs is {}".format(FLAGS.num_epochs, end_time-start_time))
-
