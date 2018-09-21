@@ -27,55 +27,34 @@ class InputHelper(object):
     def setup(self,training_folder_path, seq_list):
         self.training_folder_path = training_folder_path
 
-    def get_singlevw_info(self, batch_size, sample_range, seq_num, seq_imgs_num, conv_model_spec ):
+    def get_single_view_info(self, batch_size, conv_model_spec ):
 
         imgpaths_src=[]
         imgpaths_tgt=[]
         tforms_imgs=[]
 
-        seq_path = self.kitti_parentpath+"%02d/" % (seq_num,)
-        odomlist=self.odomDict[seq_num]
-
         for x in range(batch_size):
-            src_img_num=np.random.randint(0,seq_imgs_num)
-            radius_num=np.random.randint(1,sample_range+1)
-            odom_src=odomlist[src_img_num]
-            odom_src=np.reshape(odom_src,(3,4))
-            if random()>0.5:
-                if (src_img_num-radius_num)>0:
-                    tgt_img_num=src_img_num-radius_num
-                else:
-                    tgt_img_num=src_img_num+radius_num
-            else:
-                if (src_img_num+radius_num)<seq_imgs_num-1:
-                    tgt_img_num=src_img_num+radius_num
-                else:
-                    tgt_img_num=src_img_num-radius_num
+            random_obj = np.random.randint(0,len(data))
+            start_angle = random.choice([5*i for i in range(72)])
+            end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
+            rotate_degree = end_angle - start_angle
+            
+            if (rotate_degree < 0):
+                rotate_degree = 360 + rotate_degree
+            if(rotate_degree == 0):
+                rotate_degree = 360
+            
+            tf_info = [rotate_degree/360 for i in range(19)]
+            tforms_imgs.append(tf_info)
 
-            odom_tgt=odomlist[tgt_img_num]
-            odom_tgt=np.reshape(odom_tgt,(3,4))
-            newrow = [0,0,0,1]
-            odom_tgt_4x4 = np.vstack([odom_tgt, newrow])
-            odom_src_4x4 = np.vstack([odom_src, newrow])
-            odom_src_inv=linalg.inv(odom_src_4x4)
-            #src inv * tgt = relative transform
-            rel_odom_src_tgt=np.matmul(odom_src_inv,odom_tgt_4x4)
-            ##converting to euler to get 6d =(3+3) dimensional vector for pose
-            rel_tform_rot=rel_odom_src_tgt[0:3,0:3]
-            rx,ry,rz = euler_from_matrix(rel_tform_rot)
-            rel_tform_vec = [ rel_odom_src_tgt[0,3], rel_odom_src_tgt[1,3], rel_odom_src_tgt[2,3], rx, ry, rz]
-            heightwise = np.tile(rel_tform_vec,(conv_model_spec[1][0]*conv_model_spec[1][1],1))
-            widthwise = np.reshape(heightwise, (conv_model_spec[1][0],conv_model_spec[1][1],-1))
-            tforms_imgs.append(widthwise)
-
-            src_img_path=seq_path+ 'image_2/' +'%06d.png' % (src_img_num,)
-            tgt_img_path=seq_path+ 'image_2/' +'%06d.png' % (tgt_img_num,)
+            src_img_path=os.path.join(random_obj, str(random_obj)+'_r'+str(start_angle)+'.png')
+            tgt_img_path=os.path.join(random_obj, str(random_obj)+'_r'+str(end_angle)+'.png')
             imgpaths_src.append(src_img_path)
             imgpaths_tgt.append(tgt_img_path)
 
         return [imgpaths_src], [tforms_imgs], imgpaths_tgt
 
-    def get_multivw_info(self, batch_size, sample_range, seq_num, seq_imgs_num, conv_model_spec ):
+    def get_multivw_info(self, batch_size, conv_model_spec ):
 
         imgpaths_src=[[] for i in range(2)]
         imgpaths_tgt=[]
@@ -151,21 +130,19 @@ class InputHelper(object):
 
 
 
-    def getKittiBatch(self,batch_size, sample_range, seq_list, is_train, img_num_dict, conv_model_spec, epoch,  get_img_tforms=1, is_multi_view=False):
+    def getInputBatch(self,batch_size, data, is_train, conv_model_spec, epoch,  get_img_tforms=1, is_multi_view=False):
+        # random_obj = np.random.randint(0,len(data))
+        # start_angle = random.choice([5*i for i in range(72)])
+        # end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
 
-
-
-        lenseq = len(seq_list)
-        seq_idx = np.random.randint(0,lenseq)
-        seq_num = seq_list[seq_idx]
-        seq_imgs_num = img_num_dict[seq_num]
-        src_imgslist = []
+        
 
         if(is_multi_view):
-            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_multivw_info( batch_size, sample_range, seq_num, seq_imgs_num, conv_model_spec)
+            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_multivw_info(batch_size, conv_model_spec)
         else:
-            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_singlevw_info( batch_size, sample_range, seq_num, seq_imgs_num, conv_model_spec)
+            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_single_view_info( batch_size, conv_model_spec)
 
+        src_imgslist = []
         crop_window=np.random.randint(0,3)
 
         for srclists in imgpaths_src:
