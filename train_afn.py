@@ -48,15 +48,12 @@ for attr, value in sorted(FLAGS.flag_values_dict().items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-objects=[ i for i in range(1,numObjects+1) ] ##number stands for object inside ith folder
+objects=[ i for i in range(1,FLAGS.numObjects+1) ] ##number stands for object inside ith folder
 #break into train and test
 objtrain=objects[0:800]#training from 1-800
 obj_seen_test=objects[699:800]#seen test from 700-800
 obj_unseen_test=objects[799:900]#unseen test from 800-900
 
-
-#hard coded for now, add method to compute TODO
-imgs_counts={0:4540,1:1100,2:4660,3:800,4:270,5:2760,6:1100,7:1100,8:4070,9:1590,10:1200}#,11:920}
 inpH = InputHelper()
 inpH.setup(FLAGS.training_folder_path,objects)
 
@@ -145,33 +142,32 @@ with tf.Graph().as_default():
     def train_step(batch_size, src_batch, real_img_batch, tform_batch, train_iter, multi_view_training):
 
         #A single training step
-        for i in range(batch_size):
-            if(FLAGS.multi_view_training):
+        if(FLAGS.multi_view_training):
 
-                feed_dict={convModel.input_imgs: src_batch[0],
-                            convModel.aux_imgs: src_batch[1],
-                            convModel.tgt_imgs: real_img_batch,
-                            convModel.tform: tform_batch[0],
-                            convModel.tform_aux: tform_batch[1] }
-            else:
+            feed_dict={convModel.input_imgs: src_batch[0],
+                        convModel.aux_imgs: src_batch[1],
+                        convModel.tgt_imgs: real_img_batch,
+                        convModel.tform: tform_batch[0],
+                        convModel.tform_aux: tform_batch[1] }
+        else:
 
-                feed_dict={convModel.input_imgs: src_batch[i],
-                            convModel.real_imgs: real_img_batch[i],
-                            convModel.tform: tform_batch}
+            feed_dict={convModel.input_imgs: src_batch[0],
+                        convModel.real_imgs: real_img_batch[0],
+                        convModel.tform: tform_batch}
 
 
-            if(train_iter%FLAGS.batches_train==0):
-                outputs, _, step, loss, summary = sess.run([convModel.generated, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
-                img_num=0
-                for i in range(len(outputs)):
-                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_output.png', outputs[i])
-                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_target.png', real_img_batch[i])
-                    for j in range(len(src_batch)):
-                        imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_input'+str(j)+'.png', src_batch[j][i])
-                    img_num+=1
-            else:
-                 _, step, loss, summary = sess.run([tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
-            time_str = datetime.datetime.now().isoformat()
+        if(train_iter%FLAGS.batches_train==0):
+            outputs, _, step, loss, summary = sess.run([convModel.generated, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
+            img_num=0
+            for i in range(len(outputs)):
+                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_output.png', outputs[i])
+                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_target.png', real_img_batch[i])
+                for j in range(len(src_batch)):
+                    imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_input'+str(j)+'.png', src_batch[j][i])
+                img_num+=1
+        else:
+             _, step, loss, summary = sess.run([tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
+        time_str = datetime.datetime.now().isoformat()
         return summary, loss
 
     def dev_step(src_batch, real_img_batch, tform_batch, dev_iter, epoch, multi_view_training):

@@ -56,61 +56,43 @@ class Net(object):
 
 
 
-def model(self):
+    def model(self):
 
         debug=True
         net_layers={}
         #placeholder for a random set of <batch_size> images of fixed size -- 224,224
         self.input_imgs = tf.placeholder(tf.float32, shape = [None, 224, 224, 3], name = "input_imgs")
-        # self.input_batch_size = tf.shape(self.input_imgs)[0]  # Returns a scalar `tf.Tensor`
-        
-        self.tform = tf.placeholder(tf.float32, shape = [None, 19], name = "tform")
-        net_layers['input_stack'] = self.input_imgs
+        self.input_batch_size = tf.shape(self.input_imgs)[0]  # Returns a scalar `tf.Tensor`
+        self.tform = tf.placeholder(tf.float32, shape = [None, 224, 224, 6], name = "tform")
+        net_layers['input_stack'] = tf.concat([self.input_imgs, self.tform], 3)
+
         #mean is already subtracted in helper.py as part of preprocessing
         # Conv-Layers
 
-        net_layers['Convolution1'] = self.conv(net_layers['input_stack'], 3, 3 , 16, name= 'Convolution1', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-        net_layers['Convolution2'] = self.conv(net_layers['Convolution1'], 3, 16 , 32, name= 'Convolution2', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-        net_layers['Convolution3'] = self.conv(net_layers['Convolution2'], 3, 32 , 64, name= 'Convolution3', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-        net_layers['Convolution4'] = self.conv(net_layers['Convolution3'], 3, 64 , 128, name= 'Convolution4', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-        net_layers['Convolution5'] = self.conv(net_layers['Convolution4'], 3, 128 , 256, name= 'Convolution5', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-        net_layers['Convolution6'] = self.conv(net_layers['Convolution5'], 3, 256 , 512, name= 'Convolution6', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
-
-        #fully connected Layer
-        net_layers['src_fc6'] = self.fc(net_layers['Convolution6'], 4*4*512 , 4096, name='src_fc6', relu = 1)
-        
-        #viewpoint transformation
-        net_layers['view_fc1'] = self.fc(self.tform, 19 , 128, name='view_fc1', relu = 1)
-        net_layers['view_fc2'] = self.fc(view_fc1, 128 , 256, name='view_fc2', relu = 1)
-        
-        ##concatenation
-        net_layers['view_concat'] = tf.concat([net_layers['src_fc6'], net_layers['view_fc2']], 0)
-        
-        ##Fully connected
-        net_layers['de_fc1'] = self.fc(net_layers['view_concat'], 4352 , 4096, name='de_fc1', relu = 1)
-
-        net_layers['de_fc2'] = self.fc(net_layers['de_fc1'], 4096 , 4096, name='de_fc2', relu = 1)
-        net_layers['de_fc3'] = self.fc(net_layers['de_fc2'], 4096 , 64*8*8, name='de_fc3', relu = 1)
-        net_layers['de_fc3_rs'] = tf.reshape(net_layers['de_fc3'],shape=[-1, 8, 8, 64], name='de_fc3_rs')
+        net_layers['Convolution1'] = self.conv(net_layers['input_stack'], 3, 9 , 32, name= 'Convolution1', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
+        net_layers['Convolution2'] = self.conv(net_layers['Convolution1'], 3, 32 , 64, name= 'Convolution2', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
+        net_layers['Convolution3'] = self.conv(net_layers['Convolution2'], 3, 64 , 128, name= 'Convolution3', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
+        net_layers['Convolution4'] = self.conv(net_layers['Convolution3'], 3, 128 , 256, name= 'Convolution4', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
+        net_layers['Convolution5'] = self.conv(net_layers['Convolution4'], 3, 256 , 512, name= 'Convolution5', strides=[1,2,2,1] ,padding='VALID', groups=1,pad_input=1)
 
         #deconv
-        net_layers['deconv1'] = self._upscore_layer(net_layers['de_fc3_rs'], shape=None,
-                                           num_classes=256,
+        net_layers['deconv1'] = self._upscore_layer(net_layers['Convolution5'], shape=None,
+                                           num_classes=512,
                                            debug=debug, name='deconv1', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv2'] = self._upscore_layer(net_layers['deconv1'], shape=None,
-                                           num_classes=128,
+                                           num_classes=256,
                                            debug=debug, name='deconv2', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv3'] = self._upscore_layer(net_layers['deconv2'], shape=None,
-                                           num_classes=64,
+                                           num_classes=128,
                                            debug=debug, name='deconv3', ksize=3, stride=2, pad_input=1)
 
         net_layers['deconv4'] = self._upscore_layer(net_layers['deconv3'], shape=None,
-                                           num_classes=32,
+                                           num_classes=64,
                                            debug=debug, name='deconv4', ksize=3, stride=2, pad_input=1)
         net_layers['deconv5'] = self._upscore_layer(net_layers['deconv4'], shape=None,
-                                           num_classes=16,
+                                           num_classes=32,
                                            debug=debug, name='deconv5', ksize=3, stride=2, pad_input=1)
         net_layers['deconv6'] = self._upscore_layer(net_layers['deconv5'], shape=None,
                                            num_classes=2,

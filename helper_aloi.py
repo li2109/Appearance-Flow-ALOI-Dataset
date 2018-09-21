@@ -7,6 +7,7 @@ import time
 import gc
 import gzip
 from random import random
+import random
 import sys
 from scipy import misc
 import imgaug as ia
@@ -15,6 +16,7 @@ from imgaug import parameters as iap
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
+import os
 #reload(sys)
 #sys.setdefaultencoding("utf-8")
 import numpy.linalg as linalg
@@ -24,8 +26,9 @@ from transformations import euler_from_matrix
 
 class InputHelper(object):
 
-    def setup(self,training_folder_path, seq_list):
+    def setup(self,training_folder_path, objects):
         self.training_folder_path = training_folder_path
+        self.objects = objects
 
     def get_single_view_info(self, batch_size, conv_model_spec ):
 
@@ -34,7 +37,7 @@ class InputHelper(object):
         tforms_imgs=[]
 
         for x in range(batch_size):
-            random_obj = np.random.randint(0,len(data))
+            random_obj = np.random.randint(1,len(self.objects))
             start_angle = random.choice([5*i for i in range(72)])
             end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
             rotate_degree = end_angle - start_angle
@@ -47,8 +50,8 @@ class InputHelper(object):
             tf_info = [rotate_degree/360 for i in range(19)]
             tforms_imgs.append(tf_info)
 
-            src_img_path=os.path.join(random_obj, str(random_obj)+'_r'+str(start_angle)+'.png')
-            tgt_img_path=os.path.join(random_obj, str(random_obj)+'_r'+str(end_angle)+'.png')
+            src_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(start_angle)+'.png')
+            tgt_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(end_angle)+'.png')
             imgpaths_src.append(src_img_path)
             imgpaths_tgt.append(tgt_img_path)
 
@@ -159,12 +162,16 @@ class InputHelper(object):
 
         for img_path in img_paths:
             img_org = misc.imread(img_path)
+            # print(np.asarray(img_org).shape)
+            img_org = misc.imresize(img_org,[224,224,3])
             # img_normalized = self.normalize_input(img_org, conv_model_spec,crop_window)
             img_batch.append(img_org)
 
         #misc.imsave('temp1.png', np.vstack([np.hstack(batch1_seq),np.hstack(batch2_seq)]))
 
         temp =  np.asarray(img_batch)
+        # temp = np.rollaxis(temp, 3, 1)
+        # temp.reshape(1,224, 224, 3)
         return temp
 
 
