@@ -30,7 +30,7 @@ class InputHelper(object):
         self.training_folder_path = training_folder_path
         self.objects = objects
 
-    def get_single_view_info(self, batch_size, conv_model_spec ):
+    def get_single_view_info(self, batch_size):
 
         imgpaths_src=[]
         imgpaths_tgt=[]
@@ -55,7 +55,9 @@ class InputHelper(object):
             imgpaths_src.append(src_img_path)
             imgpaths_tgt.append(tgt_img_path)
 
-        return [imgpaths_src], [tforms_imgs], imgpaths_tgt
+        # print([imgpaths_src])
+        # print(tforms_imgs)
+        return imgpaths_src, tforms_imgs, imgpaths_tgt
 
     def get_multivw_info(self, batch_size, conv_model_spec ):
 
@@ -128,6 +130,8 @@ class InputHelper(object):
             imgpaths_src[1].append(aux_img_path)
             imgpaths_tgt.append(tgt_img_path)
 
+        
+
         return imgpaths_src, tforms_imgs, imgpaths_tgt
 
 
@@ -137,27 +141,24 @@ class InputHelper(object):
         # random_obj = np.random.randint(0,len(data))
         # start_angle = random.choice([5*i for i in range(72)])
         # end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
-
         
 
         if(is_multi_view):
             imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_multivw_info(batch_size, conv_model_spec)
         else:
-            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_single_view_info( batch_size, conv_model_spec)
+            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_single_view_info( batch_size)
 
         src_imgslist = []
-        crop_window=np.random.randint(0,3)
 
-        for srclists in imgpaths_src:
-            src_imgslist.append(self.image_preprocess(srclists, conv_model_spec,epoch,crop_window))
+        src_imgslist.append(self.image_preprocess(imgpaths_src))
 
-        tgt_imgslist = self.image_preprocess(imgpaths_tgt, conv_model_spec,epoch, crop_window)
+        tgt_imgslist = self.image_preprocess(imgpaths_tgt)
 
         return src_imgslist,tgt_imgslist,tforms_imgs
 
 
 
-    def image_preprocess(self, img_paths, conv_model_spec, epoch,crop_window, is_train=True):
+    def image_preprocess(self, img_paths):
         img_batch = []
 
         for img_path in img_paths:
@@ -171,7 +172,8 @@ class InputHelper(object):
 
         temp =  np.asarray(img_batch)
         # temp = np.rollaxis(temp, 3, 1)
-        # temp.reshape(1,224, 224, 3)
+        # temp = temp.reshape(1,224, 224, 3)
+        # temp = temp.reshape(1, 224,224,3)
         return temp
 
 

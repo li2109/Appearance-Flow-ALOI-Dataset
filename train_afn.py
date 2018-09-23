@@ -152,7 +152,7 @@ with tf.Graph().as_default():
         else:
 
             feed_dict={convModel.input_imgs: src_batch[0],
-                        convModel.real_imgs: real_img_batch[0],
+                        convModel.real_imgs: real_img_batch,
                         convModel.tform: tform_batch}
 
 
@@ -212,6 +212,11 @@ with tf.Graph().as_default():
         for kk in range(FLAGS.batches_train):
             print(str(kk))
             src_batch, real_img_batch, tform_batch = inpH.getInputBatch(FLAGS.batch_size,objtrain,True, convModel.spec,nn, FLAGS.multi_view_training)
+            
+            print(np.asarray(src_batch[0]).shape)
+            print(np.asarray(real_img_batch[0]).shape)
+            print(np.asarray(tform_batch[0]).shape)
+
             summary, train_batch_loss =train_step(FLAGS.batch_size, src_batch, real_img_batch, tform_batch, kk, FLAGS.multi_view_training)
             train_writer.add_summary(summary, current_step)
             train_epoch_loss = train_epoch_loss + train_batch_loss* len(tform_batch)
