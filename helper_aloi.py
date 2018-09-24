@@ -30,35 +30,6 @@ class InputHelper(object):
         self.training_folder_path = training_folder_path
         self.objects = objects
 
-    def get_single_view_info(self, batch_size):
-
-        imgpaths_src=[]
-        imgpaths_tgt=[]
-        tforms_imgs=[]
-
-        for x in range(batch_size):
-            random_obj = np.random.randint(1,len(self.objects))
-            start_angle = random.choice([5*i for i in range(72)])
-            end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
-            rotate_degree = end_angle - start_angle
-            
-            if (rotate_degree < 0):
-                rotate_degree = 360 + rotate_degree
-            if(rotate_degree == 0):
-                rotate_degree = 360
-            
-            tf_info = [rotate_degree/360 for i in range(19)]
-            tforms_imgs.append(tf_info)
-
-            src_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(start_angle)+'.png')
-            tgt_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(end_angle)+'.png')
-            imgpaths_src.append(src_img_path)
-            imgpaths_tgt.append(tgt_img_path)
-
-        # print([imgpaths_src])
-        # print(tforms_imgs)
-        return imgpaths_src, tforms_imgs, imgpaths_tgt
-
     def get_multivw_info(self, batch_size, conv_model_spec ):
 
         imgpaths_src=[[] for i in range(2)]
@@ -130,28 +101,57 @@ class InputHelper(object):
             imgpaths_src[1].append(aux_img_path)
             imgpaths_tgt.append(tgt_img_path)
 
-        
+        return imgpaths_src, tforms_imgs, imgpaths_tgt
 
+
+    def get_single_view_info(self, batch_size):
+
+        imgpaths_src=[]
+        imgpaths_tgt=[]
+        tforms_imgs=[]
+
+        for x in range(batch_size):
+            random_obj = np.random.randint(1,len(self.objects))
+            start_angle = random.choice([5*i for i in range(72)])
+            end_angle = random.choice([(start_angle+5*(i+1))%360 for i in range(6)])
+            rotate_degree = end_angle - start_angle
+            
+            if (rotate_degree < 0):
+                rotate_degree = 360 + rotate_degree
+            if(rotate_degree == 0):
+                rotate_degree = 360
+            
+            tf_info = [rotate_degree/360 for i in range(19)]
+            tforms_imgs.append(tf_info)
+
+            src_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(start_angle)+'.png')
+            tgt_img_path=os.path.join(self.training_folder_path, str(random_obj), str(random_obj)+'_r'+str(end_angle)+'.png')
+            imgpaths_src.append(src_img_path)
+            imgpaths_tgt.append(tgt_img_path)
+
+        # print([imgpaths_src])
+        # print(tforms_imgs)
+        tforms_imgs = np.asarray(tforms_imgs)
         return imgpaths_src, tforms_imgs, imgpaths_tgt
 
 
 
-
-    def getInputBatch(self,batch_size, data, is_train, conv_model_spec, epoch,  get_img_tforms=1, is_multi_view=False):
+    def getInputBatch(self,batch_size, data, is_train, epoch,  get_img_tforms=1, is_multi_view=False):
         # random_obj = np.random.randint(0,len(data))
         # start_angle = random.choice([5*i for i in range(72)])
         # end_angle = random.choice([(start_angle+30*(i+1))%360 for i in range(12)])
         
 
         if(is_multi_view):
-            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_multivw_info(batch_size, conv_model_spec)
+            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_multivw_info(batch_size)
         else:
-            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_single_view_info( batch_size)
+            imgpaths_src, tforms_imgs, imgpaths_tgt = self.get_single_view_info(batch_size)
 
+        # print(tforms_imgs)
         src_imgslist = []
-
+        print("src:")
         src_imgslist.append(self.image_preprocess(imgpaths_src))
-
+        print("generated:")
         tgt_imgslist = self.image_preprocess(imgpaths_tgt)
 
         return src_imgslist,tgt_imgslist,tforms_imgs
@@ -161,6 +161,7 @@ class InputHelper(object):
     def image_preprocess(self, img_paths):
         img_batch = []
 
+        print(img_paths[0])
         for img_path in img_paths:
             img_org = misc.imread(img_path)
             # print(np.asarray(img_org).shape)

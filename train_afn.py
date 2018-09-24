@@ -20,6 +20,15 @@ tf.flags.DEFINE_string("name", "result", "prefix names of the output files(defau
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 10)")
+
+batch_size = 128
+train_obj = 800
+unseen_test = 100
+seen_test = 100
+
+batches_train = 800*72*6//batch_size
+bathces_test = 100*72*6//batch_size
+
 tf.flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("checkpoint_every", 1, "Save model after this many epochs (default: 100)")
 tf.flags.DEFINE_string("loss", "contrastive", "Type of Loss function")
@@ -31,12 +40,13 @@ tf.flags.DEFINE_boolean("allow_soft_placement", False, "Allow device soft device
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 tf.flags.DEFINE_string("summaries_dir", "outputs/summaries/", "Summary storage")
 
+
 #Model Parameters
 tf.flags.DEFINE_string("checkpoint_path", "", "pre-trained checkpoint path")
 tf.flags.DEFINE_integer("numObjects", 900, "number of objects")
-tf.flags.DEFINE_integer("batches_train", 5400 , "batches for train")
-tf.flags.DEFINE_integer("batches_seen_test", 675, "batches for seen test")
-tf.flags.DEFINE_integer("batches_unseen_test", 675, "batches for unseen test")
+tf.flags.DEFINE_integer("batches_train", batches_train , "batches for train")
+tf.flags.DEFINE_integer("batches_seen_test", bathces_test, "batches for seen test")
+tf.flags.DEFINE_integer("batches_unseen_test", bathces_test, "batches for unseen test")
 
 tf.flags.DEFINE_boolean("conv_net_training", True, "Training ConvNet (Default: False)")
 tf.flags.DEFINE_boolean("multi_view_training", False, "Training ConvNet (Default: False)")
@@ -156,12 +166,13 @@ with tf.Graph().as_default():
                         convModel.tform: tform_batch}
 
 
+        # if(train_iter%FLAGS.batches_train==0):
         if(train_iter%FLAGS.batches_train==0):
             outputs, _, step, loss, summary = sess.run([convModel.generated, tr_op_set, global_step, convModel.loss, summaries_merged],  feed_dict)
             img_num=0
             for i in range(len(outputs)):
                 imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_output.png', outputs[i])
-                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_target.png', real_img_batch[i])
+                imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_realImage.png', real_img_batch[i])
                 for j in range(len(src_batch)):
                     imsave('outputs/imgs/'+str(train_iter)+'_'+str(img_num)+'_input'+str(j)+'.png', src_batch[j][i])
                 img_num+=1
@@ -186,9 +197,7 @@ with tf.Graph().as_default():
 
             feed_dict={convModel.input_imgs: src_batch[0],
                         convModel.tgt_imgs: real_img_batch,
-                        convModel.tform: tform_batch[0] }
-
-
+                        convModel.tform: tform_batch[0]}
 
         step, loss, summary, outputs= sess.run([global_step, convModel.loss, summaries_merged,convModel.tgts],  feed_dict)
 
@@ -211,11 +220,11 @@ with tf.Graph().as_default():
         train_epoch_loss=0.0
         for kk in range(FLAGS.batches_train):
             print(str(kk))
-            src_batch, real_img_batch, tform_batch = inpH.getInputBatch(FLAGS.batch_size,objtrain,True, convModel.spec,nn, FLAGS.multi_view_training)
+            src_batch, real_img_batch, tform_batch = inpH.getInputBatch(FLAGS.batch_size,objtrain,True,nn, FLAGS.multi_view_training)
             
-            print(np.asarray(src_batch[0]).shape)
-            print(np.asarray(real_img_batch[0]).shape)
-            print(np.asarray(tform_batch[0]).shape)
+            # print(np.asarray(src_batch[0]).shape)
+            # print(np.asarray(real_img_batch[0]).shape)
+            # print(np.asarray(tform_batch[0]).shape)
 
             summary, train_batch_loss =train_step(FLAGS.batch_size, src_batch, real_img_batch, tform_batch, kk, FLAGS.multi_view_training)
             train_writer.add_summary(summary, current_step)
